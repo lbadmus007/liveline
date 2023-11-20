@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: CloudFormation template for creating IAM role to be used by CreateActivation as well as by instance profile for on-premises hosts managed by SSM
+
+Parameters:
+
+  SSMDocument:
+    Type: String
+    Description: SSM Document for forwarding SSM session logs to centralized s3 bucket
+    Default: SSM-SessionManagerRunShell
+  
+  IAMRoleName:
+    Type: String
+    Description: IAM Role for SSM
+    Default: Liveline-HybridActivationRole 
+
+Resources:
+
+  # DOC: https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-create-iam-instance-profile.html#create-iam-instance-profile-ssn-logging
+  HybridActivationRole:
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: !Ref IAMRoleName
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        AssumeRolePolicyDocument:
+          Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ssm.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+        Path: /
+        Policies:   
+          - PolicyName: HybridActivationCustomInlinePolicies
+            PolicyDocument:
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - ssm:CreateActivation
+                  Resource: "*"
+                - Effect: Allow
+                  Action:
+                    - iam:PassRole
+                  Resource: "*"
+                - Effect: Allow
+                  Action:
+                    - cloudformation:DescribeStacks
+                  Resource: "*"
+                - Effect: Allow
+                  Action:
+                    - ssm:UpdateDocument
+                  Resource: 
+                    !Sub 
+                      - 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/${SSMDocName}'
+                      - { SSMDocName: !Ref SSMDocument }
+                - Effect: Allow
+                  Action:
+                    - kms:Decrypt
+                    - kms:GenerateDataKey
+                  Resource: '"arn:aws:kms:us-east-1:082494019291:key/7be77241-dbf3-4255-af88-a7ecba80debf"'
+                    # !Sub 
+                    #   - 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${KMSKeyId}'
+                    #   - { KMSKeyId: !Ref CWLogsCMK }
+                - Effect: Allow
+                  Action:
+                    - ssmmessages:CreateControlChannel
+                    - ssmmessages:CreateDataChannel
+                    - ssmmessages:OpenControlChannel
+                    - ssmmessages:OpenDataChannel
+                    - ssm:UpdateInstanceInformation
+                  Resource: "*"
+                - Effect: Allow
+                  Action: 
+                    - s3:PutObject
+                    - s3:PutObjectAcl
+                  Resource: "arn:aws:s3:::liveline-bucketdetailsss/*"
+                - Effect: Allow
+                  Action: 
+                    - kms:Decrypt
+                    - kms:GenerateDataKey
+                  Resource: "arn:aws:kms:us-east-1:082494019291:key/7be77241-dbf3-4255-af88-a7ecba80debf"
+                - Effect: Allow
+                  Action: 
+                    - s3:GetEncryptionConfiguration
+                  Resource: "arn:aws:s3:::liveline-bucketdetailsss"
+                  # "arn:aws:s3:::rahul-livelinetest"
+
+Outputs:
+  HybridActivationIAMRole:
+    Description: IAM Role to be used by Hybrid Activation
+    Value: !Ref HybridActivationRole
+    Export:
+      Name: "HybridActivationIAMRoleName"
