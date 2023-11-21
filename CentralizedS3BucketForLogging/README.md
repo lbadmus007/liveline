@@ -51,19 +51,19 @@ You may also want to run multiple docker containers simultaniously to make pipel
 - Copy AddSSMForOnPremise.sh file to the application aws account and execute it as per below commands
   # chmod +x AddSSMForOnPremise.sh SessionManagerRunShell.json
   # nohup ./AddSSMForOnPremise.sh Liveline liveline-bucketdetailsss 367521952991 arn:aws:kms:us-east-1:082494019291:key/7be77241-dbf3-4255-af88-a7ecba80debf > AddSSMForOnPremise.logs &
-  # 
+  
   # The .sh file requires below 04 arguments:
   # 1 - Name of CFT deployed to application aws account
   # 2 - Name of S3 bucket created on centralized logging aws account
   # 3 - Application aws account ID
   # 4 - KMS CMK ARN deployed to centralized logging aws account
-  #
+  
   # Press ENTER post triggering the above nohup command, the script will be executed in the background and store all the script execution logs to AddSSMForOnPremise.logs file, look into this #  
     for any success or failure
-  #
+  
   # Once the script is successfully executed, a on-premise host id having prefix as 'mi-' will be visible to AddSSMForOnPremise.logs file which despicts that the on-premise host has been 
     succesfully registered
-  #
+  
   # The same mi-xx id would be visible to Fleet Manager under System Manager in application aws account
   # Enable the SSM session for instance mi-xx and that session would be visible to Session Manager under System Manager
   # Once the SSM session for instance mi-xx would be terminated, the session logs woulf be forwarded to the centralized logging aws account S3 bucket under application aws account ID folder
