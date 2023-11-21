@@ -14,6 +14,16 @@ Parameters:
     Description: IAM Role for SSM
     Default: Liveline-HybridActivationRole 
 
+  KMSKeyArn:
+    Type: String
+    Description: Centralized Logging Account KMS Key Arn
+    Default: arn:aws:kms:us-east-1:082494019291:key/7be77241-dbf3-4255-af88-a7ecba80debf
+
+  S3BucketName:
+    Type: String
+    Description: Centralized Logging Account S3 Bucket Name
+    Default: liveline-bucketdetailsss
+
 Resources:
 
   # DOC: https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-create-iam-instance-profile.html#create-iam-instance-profile-ssn-logging
@@ -35,6 +45,7 @@ Resources:
         Policies:   
           - PolicyName: HybridActivationCustomInlinePolicies
             PolicyDocument:
+              Version: "2012-10-17"
               Statement:
                 - Effect: Allow
                   Action:
@@ -59,10 +70,7 @@ Resources:
                   Action:
                     - kms:Decrypt
                     - kms:GenerateDataKey
-                  Resource: '"arn:aws:kms:us-east-1:082494019291:key/7be77241-dbf3-4255-af88-a7ecba80debf"'
-                    # !Sub 
-                    #   - 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${KMSKeyId}'
-                    #   - { KMSKeyId: !Ref CWLogsCMK }
+                  Resource: !Ref KMSKeyArn
                 - Effect: Allow
                   Action:
                     - ssmmessages:CreateControlChannel
@@ -75,17 +83,13 @@ Resources:
                   Action: 
                     - s3:PutObject
                     - s3:PutObjectAcl
-                  Resource: "arn:aws:s3:::liveline-bucketdetailsss/*"
-                - Effect: Allow
-                  Action: 
-                    - kms:Decrypt
-                    - kms:GenerateDataKey
-                  Resource: "arn:aws:kms:us-east-1:082494019291:key/7be77241-dbf3-4255-af88-a7ecba80debf"
+                  Resource: 
+                    - !Sub arn:aws:s3:::${S3BucketName}/*
                 - Effect: Allow
                   Action: 
                     - s3:GetEncryptionConfiguration
-                  Resource: "arn:aws:s3:::liveline-bucketdetailsss"
-                  # "arn:aws:s3:::rahul-livelinetest"
+                  Resource: 
+                    - !Sub arn:aws:s3:::${S3BucketName}
 
 Outputs:
   HybridActivationIAMRole:
