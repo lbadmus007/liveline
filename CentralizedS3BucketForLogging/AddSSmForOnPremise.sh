@@ -36,7 +36,7 @@ else
 fi
 
 echo "............ Activating Hybrid Activation ................"
-export variable=$(aws ssm create-activation --default-instance-name "OnPremisesHosts" --iam-role "$role" --registration-limit 2)
+export variable=$(aws ssm create-activation --default-instance-name "OnPremisesHosts" --iam-role "$role" --registration-limit 1)
 #echo $variable
 
 export activation_id=$(echo $variable | cut -d' ' -f2)
@@ -68,9 +68,12 @@ chronyc sources -v
 chronyc tracking
 echo ".............. Clock has been successfully synched with AWS ............."
 
+instance_id=$(grep -i "Managed instance-id" AddSSMForOnPremise.logs | sed 's/.*: //')
+s3keyname=$3/${instance_id}
+
 echo "........... Updating KMS key, S3 Bucket and S3 Key Name[Prefix] in SessionManagerRunShell.json file ..........."
 jq --arg newval "$2" '.inputs.s3BucketName |= $newval' SessionManagerRunShell.json > local_cache1.json
-jq --arg newval "$3" '.inputs.s3KeyPrefix |= $newval' local_cache1.json > local_cache2.json
+jq --arg newval "$s3keyname" '.inputs.s3KeyPrefix |= $newval' local_cache1.json > local_cache2.json
 jq --arg newval "$4" '.inputs.kmsKeyId |= $newval' local_cache2.json > SessionManagerRunShell.json
 
 echo ".............. Updating the session manager preferences setting for cloudwatch log group ...................."
