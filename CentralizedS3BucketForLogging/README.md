@@ -46,9 +46,9 @@ You may also want to run multiple docker containers simultaniously to make pipel
 
 - Note down the CFT name post deployment
 
-- Copy SessionManagerRunShell.json file to the application aws account
+- Copy SessionManagerRunShell.json file to the application aws account on-premises linux machine
 
-- Copy AddSSMForOnPremise.sh file to the application aws account and execute it as per below commands
+- Copy AddSSMForOnPremise.sh file to the application aws account on-premises linux machine and execute it as per below commands
   # chmod +x AddSSMForOnPremise.sh SessionManagerRunShell.json
   # nohup ./AddSSMForOnPremise.sh Liveline liveline-bucketdetailsss 367521952991 arn:aws:kms:us-east-1:082494019291:key/7be77241-dbf3-4255-af88-a7ecba80debf > AddSSMForOnPremise.logs &
   
@@ -66,4 +66,4 @@ You may also want to run multiple docker containers simultaniously to make pipel
   
   # The same mi-xx id would be visible to Fleet Manager under System Manager in application aws account
   # Enable the SSM session for instance mi-xx and that session would be visible to Session Manager under System Manager
-  # Once the SSM session for instance mi-xx would be terminated, the session logs woulf be forwarded to the centralized logging aws account S3 bucket under application aws account ID folder
+  # Once the SSM session for instance mi-xx would be terminated, the session logs would be forwarded to the centralized logging aws account S3 bucket under application aws account ID folder
