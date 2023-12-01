@@ -62,7 +62,6 @@ Steps to be executed on Source AWS Account
   ## LogPusherRoleName: Name of an IAM role used to push log events to the destination
 ```
 
-
 About SessionManagerRunShell.json
 
 ```
@@ -71,18 +70,39 @@ About SessionManagerRunShell.json
   # This json file contains cloudwatch log group configuration to which SSM logs will be forwarded
 ```
 
-Execute script.sh as per below command and a file named SessionManagerRunShell.json:
-  # Add script.sh KMS ID parameter created in above step
+About create_activation_script.sh
 
-- Deploy CFT 'CentralizedLoggingCWLDestination.yaml' to parent acc, it'll create a log destination and an iam role attached to it
-  # It'll create cloudwatch logging destination
+```
+- Copy file create_activation_script.sh to Source AWS Account
 
-- Deploy CFT 'CentralizedLoggingKinesis - New.yaml' to parent acc, it'll create a kinesis firehost and firehost iam role
-  # It'll create kinesis, lambda, and their related components
+  # This shell script is used for creating the create-activation, helps in registering the on-premises hosts
+```
 
-- Deploy CFT 'SourceAccCFT.yaml' to parent acc, it'll create a kinesis firehost and firehost iam role
-  # It'll create log pusher IAM role for Cloudwatch subscription filter
+  ### The shell script requires below 04 arguments 
+```
+  ## 1. CFT Name: Name of the CFT deployed on Source AWS Account
+  ## 2. On-Premises Host Name: Name of on-premises host to be located under AWS Systems Manager [Fleet Manager] Console
+  ## 3. Destination ARN: CloudWatch Logs Destination ARN [Pull the value from Outputs under deployed CentralizedLoggingKinesis.yaml CFT on Centralized/Destination Account]
+  ## 4. IAM Role Arn: Log Pusher IAM Role ARN [Pull the value from Outputs under deployed SourceAccount.yaml CFT on Source AWS Account]
 
-- Trigger below AWS CLI command:
-- aws logs put-subscription-filter --log-group-name /aws/ssm/SessionManagerLogg --filter-name CentralisedLogging --filter-pattern '' --destination-arn   
-  arn:aws:logs:us-east-1:082494019291:destination:CentralisedLogss --role-arn arn:aws:iam::367521952991:role/CentralisedLogsPusher
+``` 
+  ### Execute the shell script
+```
+  ## 1. chmod +x create_activation_script.sh SessionManagerRunShell.json
+  ## 2. nohup ./create_activation_script.sh ARG1 ARG2 ARG3 ARG4 > create_activation_script.logs & 
+  ## Example: nohup ./create_activation_script.sh CWLG OnPremisesHost arn:aws:logs:us-east-1:XXXXXXXX:destination:CentralisedLogss arn:aws:iam::XXXXXXXXXXXX:role/CentralisedLogsPusher > 
+     create_activation_script.logs &
+  
+```
+  ### Verification Step
+```
+  ## Once the script is successfully executed, a on-premise host id having prefix as 'mi-' will be visible to create_activation_script.logs file which despicts that the on-premise host has been 
+     succesfully registered.
+  ## Press ENTER post triggering the nohup command, the script will be executed in the background and store all the script execution logs to create_activation_script.logs file, look into this 
+     for any success or failure.
+  ## The same mi-xx id would be visible to Fleet Manager under System Manager[Fleet Manager] in Source AWS Account.
+  ## Enable the SSM session for instance mi-xx and that session would be visible to Session Manager under System Manager[Session Manager] with unique session id.
+  ## Once the SSM session for instance mi-xx would be terminated, the session logs would be forwarded to the Source AWS Account CloudWatch Log Group as well as to the Centralized/Destination   
+     Logging AWS Account S3 bucket.
+
+``` 

@@ -149,6 +149,10 @@ Resources:
                     !Sub
                       - 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key:${KMSKeyID}'
                       - { KMSKeyID: !Ref CWLogsCMK }
+                - Effect: Allow
+                  Action: 
+                    - logs:PutSubscriptionFilter
+                  Resource: "*" 
 
   LogPusherRole:
     Type: AWS::IAM::Role
@@ -194,4 +198,9 @@ Outputs:
     Value: !Ref CWLogsCMK
     Export:
       Name: "CustomerManagedEncryptionKey"
-  
+
+  LogPusherRoleName:
+    Description: IAM Role to be used by cloudwatch logs subscription filter
+    Value: !GetAtt LogPusherRole.Arn
+    Export:
+      Name: "LogPusherRoleName"
