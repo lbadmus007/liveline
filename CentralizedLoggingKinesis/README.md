@@ -7,7 +7,7 @@ https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-cre
 
 ## Pre-Requisitives
 
-Before starting registering the on-premises hosts, you need to populate 02 environment files fur aws user authentication. 
+Before starting registering the on-premises hosts, you need to populate 02 environment files for aws user authentication. 
 
 The file you create is ignored by git, so there is no risk of accidentially committing secrets to the repo.(As long as the filename matches the .gitignore)
 
@@ -36,7 +36,7 @@ Steps to be executed on Centralized/Destination Logging Account
 
   # This will create Kinesis Firehose, CloudWatch Log Group Destination and their related components
 ```
-  ### CFT is expecting below paramters to run, by default parameters default values are present in it but update the same as per the requirement
+  ### CFT is expecting below paramters to run, by default parameters values are present in it but update the same as per the requirement
 ```
   ## OrgId: AWS Organization Id
   ## CWLogsDestinationName: CloudWatch Log Group Destination Name
@@ -53,7 +53,7 @@ Steps to be executed on Source AWS Account
   # This will create CloudWatch Log Group, KMS Key, IAM Role and their related components
 ```
 
-  ### CFT is expecting below paramters to run, by default parameters default values are present in it but update the same as per the requirement
+  ### CFT is expecting below paramters to run, by default parameters values are present in it but update the same as per the requirement
 ```
   ## LogGroupName: CloudWatch Log Group name to which SSM logs will be forwarded
   ## CMKAliasName: KMS Key Alias name attached to KMS key
@@ -66,7 +66,7 @@ Allow using Advanced Tier for on-premises activation under Source AWS Account
 
 ```
   ## Go to Service AWS System Manager -> Fleet Manager -> Settings -> Change Instance tier settings -> Accept the warning -> Click on Change setting
-  ## You've to conver the standard to advanced-tier in order to interact with non-ec2 hosts
+  ## You've to convert the standard to advanced-tier in order to interact with non-ec2 hosts
 
 ```
 
@@ -104,12 +104,12 @@ About create_activation_script.sh
 ```
   ### Verification Step
 ```
-  ## Once the script is successfully executed, a on-premise host id having prefix as 'mi-' will be visible to create_activation_script.logs file which despicts that the on-premise host has been 
-     succesfully registered.
   ## Press ENTER post triggering the nohup command, the script will be executed in the background and store all the script execution logs to create_activation_script.logs file, look into this 
      for any success or failure.
-  ## The same mi-xx id would be visible to Fleet Manager under System Manager[Fleet Manager] in Source AWS Account.
-  ## Enable the SSM session for instance mi-xx and that session would be visible to Session Manager under System Manager[Session Manager] with unique session id.
+  ## Once the script is successfully executed, an on-premise host id having prefix as 'mi-' will be visible to create_activation_script.logs file which despicts that the on-premise host has 
+     been succesfully registered.
+  ## The same mi-xx id would be visible to Fleet Manager under System Manager in Source AWS Account.
+  ## Enable the SSM session for instance mi-xx and that session would be visible to Session Manager under System Manager with unique session id.
   ## Once the SSM session for instance mi-xx would be terminated, the session logs would be forwarded to the Source AWS Account CloudWatch Log Group as well as to the Centralized/Destination   
      Logging AWS Account S3 bucket.
 
