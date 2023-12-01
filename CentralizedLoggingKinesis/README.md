@@ -63,7 +63,7 @@ Steps to be executed on Source AWS Account
 ```
 
 
-- About SessionManagerRunShell.json
+About SessionManagerRunShell.json
 
 ```
 - Copy file SessionManagerRunShell.json to Source AWS Account
