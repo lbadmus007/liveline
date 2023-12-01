@@ -62,6 +62,14 @@ Steps to be executed on Source AWS Account
   ## LogPusherRoleName: Name of an IAM role used to push log events to the destination
 ```
 
+Allow using Advanced Tier for on-premises activation under Source AWS Account
+
+```
+  ## Go to Service AWS System Manager -> Fleet Manager -> Settings -> Change Instance tier settings -> Accept the warning -> Click on Change setting
+  ## You've to conver the standard to advanced-tier in order to interact with non-ec2 hosts
+
+```
+
 About SessionManagerRunShell.json
 
 ```
