@@ -29,7 +29,7 @@ output = text
 
 ### Implementation Steps
 
-Steps to be executed on Centralized Logging Account
+Steps to be executed on Centralized/Destination Logging Account
 
 ```
 - Deploy CFT 'CentralizedLoggingKinesis.yaml'
@@ -45,6 +45,8 @@ Steps to be executed on Centralized Logging Account
   ## KinesisS3BucketPrefix: S3 bucket prefix name attached to Kinesis Firehose
   ## s3bucketname: S3 bucket name attached to Kinesis Firehose
 ```
+
+Steps to be executed on Source Account
 
 ```
 - Deploy CFT 'SourceAccount.yaml'
