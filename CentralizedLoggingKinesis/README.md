@@ -36,7 +36,7 @@ Steps to be executed on Centralized Logging Account
 
   # This will create Kinesis Firehose, CloudWatch Log Group Destination and their related components
 ```
-  # CFT is expecting below paramters to run, by default parameters default values are present in it but update the same as per the requirement
+  ### CFT is expecting below paramters to run, by default parameters default values are present in it but update the same as per the requirement
 ```
   ## OrgId: AWS Organization Id
   ## CWLogsDestinationName: CloudWatch Log Group Destination Name
@@ -52,7 +52,7 @@ Steps to be executed on Centralized Logging Account
   # This will create CloudWatch Log Group, KMS Key, IAM Role and their related components
 ```
 
-  # CFT is expecting below paramters to run, by default parameters default values are present in it but update the same as per the requirement
+  ### CFT is expecting below paramters to run, by default parameters default values are present in it but update the same as per the requirement
 ```
   ## LogGroupName: CloudWatch Log Group name to which SSM logs will be forwarded
   ## CMKAliasName: KMS Key Alias name attached to KMS key
