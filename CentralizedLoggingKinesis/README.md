@@ -53,7 +53,7 @@ Steps to be executed on Centralized Logging Account
 
   # CFT is expecting below paramters to run, by default parameters default values are present in it but update the same as per the requirement
 
-  ## <strong>LogGroupName:</strong> CloudWatch Log Group name to which SSM logs will be forwarded
+  ## **`LogGroupName:`** CloudWatch Log Group name to which SSM logs will be forwarded
   ## CMKAliasName: KMS Key Alias name attached to KMS key
   ## SSMDocument: Name of SSM Document to trigger, contains CloudWatch Log forwarding configuration
   ## IAMRoleName: Name of an IAM role attached to Create Activations as well as to on-premises hosts
