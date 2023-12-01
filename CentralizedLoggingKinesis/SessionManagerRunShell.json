@@ -9,14 +9,14 @@
     "cloudWatchLogGroupName": "",
     "cloudWatchEncryptionEnabled": true,
     "cloudWatchStreamingEnabled": true,
-    "kmsKeyId": "arn:aws:kms:us-east-1:367521952991:key/4f1abbc8-92a4-468d-811e-1a5dcc7d6c53",
+    "kmsKeyId": "",
     "runAsEnabled": false,
     "runAsDefaultUser": "",
     "idleSessionTimeout": "20",
     "maxSessionDuration": "60",
     "shellProfile": {
-      "windows": "MyCommands",
-      "linux": "whoami"
+        "windows": "MyCommands",
+        "linux": "bash"
     }
   }
 }

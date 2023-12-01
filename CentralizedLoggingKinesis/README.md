@@ -45,8 +45,7 @@ Steps to be executed on Centralized/Destination Logging Account
   ## KinesisS3BucketPrefix: S3 bucket prefix name attached to Kinesis Firehose
   ## s3bucketname: S3 bucket name attached to Kinesis Firehose
 ```
-
-Steps to be executed on Source Account
+Steps to be executed on Source AWS Account
 
 ```
 - Deploy CFT 'SourceAccount.yaml'
@@ -64,7 +63,15 @@ Steps to be executed on Source Account
 ```
 
 
-- Execute script.sh as per below command and a file named SessionManagerRunShell.json:
+- About SessionManagerRunShell.json
+
+```
+- Copy file SessionManagerRunShell.json to Source AWS Account
+
+  # This json file contains cloudwatch log group configuration to which SSM logs will be forwarded
+```
+
+Execute script.sh as per below command and a file named SessionManagerRunShell.json:
   # Add script.sh KMS ID parameter created in above step
 
 - Deploy CFT 'CentralizedLoggingCWLDestination.yaml' to parent acc, it'll create a log destination and an iam role attached to it
