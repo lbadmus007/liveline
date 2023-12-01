@@ -1,0 +1,197 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: CloudFormation Stack To Forward SSM Logs to CloudWatch Log Group In The Same Account
+
+Parameters:
+  LogGroupName:
+    Type: String
+    Description: Cloudwatch Log Group where the SSM logs will be forwarded
+    Default: /aws/ssm/SessionManagerLogg
+
+  CMKAliasName:
+    Type: String
+    Description: Customer Managed Key Alias Name to be attached to CMK
+    Default: alias/Liveline-CMK
+  
+  SSMDocument:
+    Type: String
+    Description: SSM Document contains configuration for logs forwarding to CloudWatch Log Group
+    Default: SSM-SessionManagerRunShell
+  
+  IAMRoleName:
+    Type: String
+    Description: IAM Role to be attached to On-Premises Hosts as well as used for creating Hybrid Activation
+    Default: Liveline-HybridActivationRoles
+
+  LogPusherRoleName:
+    Type: String
+    Description: IAM Role to be used for pushing the Log Events and to be used by CloudWatch Subscription Filter
+    Default: CentralisedLogsPusher
+
+Resources:
+
+  CWLogsCMK:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: CMK attached to Cloudwatch Log Group and added to SSM Settings
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: CWLogsCMKPolicies
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              Service: !Sub 'logs.${AWS::Region}.amazonaws.com'
+            Action: 
+              - kms:Encrypt*
+              - kms:Decrypt*
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:Describe*
+            Resource: '*'
+            Condition:
+              ArnEquals:
+                kms:EncryptionContext:aws:logs:arn:
+                  !Sub 
+                      - 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${CWLogGroupName}'
+                      - { CWLogGroupName: !Ref LogGroupName }
+  
+  CMKAlias:
+    DependsOn: CWLogsCMK
+    Type: AWS::KMS::Alias
+    Properties:
+      AliasName: !Ref CMKAliasName
+      TargetKeyId: !Ref CWLogsCMK
+
+  CloudWatchLogGroup:
+    DependsOn: CMKAlias
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref LogGroupName
+      KmsKeyId: !GetAtt CWLogsCMK.Arn
+
+  # DOC: https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-create-iam-instance-profile.html#create-iam-instance-profile-ssn-logging
+  HybridActivationRole:
+      DependsOn: CloudWatchLogGroup
+      Type: AWS::IAM::Role
+      Properties:
+        RoleName: !Ref IAMRoleName
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        AssumeRolePolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ssm.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+        Path: /
+        Policies:   
+          - PolicyName: HybridActivationCustomInlinePolicies
+            PolicyDocument:
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - ssm:CreateActivation
+                    - cloudformation:DescribeStacks
+                    - logs:DescribeLogGroups
+                    - logs:DescribeLogStreams
+                  Resource: "*"
+                - Effect: Allow
+                  Action:
+                    - iam:PassRole
+                  Resource: "*"
+                - Effect: Allow
+                  Action:
+                    - ssm:UpdateDocument
+                  Resource: 
+                    !Sub 
+                      - 'arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:document/${SSMDocName}'
+                      - { SSMDocName: !Ref SSMDocument }
+                - Effect: Allow
+                  Action:
+                    - kms:Decrypt
+                    - kms:GenerateDataKey
+                  Resource: 
+                    !Sub 
+                      - 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key/${KMSKeyId}'
+                      - { KMSKeyId: !Ref CWLogsCMK }
+                - Effect: Allow
+                  Action:
+                    - ssmmessages:CreateControlChannel
+                    - ssmmessages:CreateDataChannel
+                    - ssmmessages:OpenControlChannel
+                    - ssmmessages:OpenDataChannel
+                    - ssm:UpdateInstanceInformation
+                  Resource: "*"
+                  # Selected actions only support the all resources wildcard('*').
+                - Effect: Allow
+                  Action: 
+                    - logs:CreateLogStream
+                    - logs:PutLogEvents
+                  Resource: 
+                    !Sub 
+                      - 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${CWLogGroupName}:log-stream:*'
+                      - { CWLogGroupName: !Ref LogGroupName }
+                - Effect: Allow
+                  Action: 
+                    - kms:Decrypt
+                    - kms:GenerateDataKey
+                  Resource: 
+                    !Sub
+                      - 'arn:aws:kms:${AWS::Region}:${AWS::AccountId}:key:${KMSKeyID}'
+                      - { KMSKeyID: !Ref CWLogsCMK }
+
+  LogPusherRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Ref LogPusherRoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Action: sts:AssumeRole
+          Principal:
+            Service: logs.amazonaws.com
+      Path: /
+      Policies:
+        - PolicyName: LogPusherPolicy
+          PolicyDocument:
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - logs:PutLogEvents
+                    - logs:PutSubscriptionFilter
+                  Resource:
+                    !Sub 
+                      - 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${CWLogGroupName}'
+                      - { CWLogGroupName: !Ref LogGroupName }
+                 # https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/CreateSubscriptionFilter-IAMrole.html
+
+Outputs:
+  HybridActivationIAMRole:
+    Description: IAM Role to be used by Hybrid Activation
+    Value: !Ref HybridActivationRole
+    Export:
+      Name: "HybridActivationIAMRoleNames"
+
+  CWLogGroup:
+    Description: Cloudwatch Log Group contains SSM Session Logs
+    Value: !Ref CloudWatchLogGroup
+    Export:
+      Name: "CloudWatchLogGroupName"
+
+  CMEncryptionKey:
+    Description: Customer Managed Encryption Key ID
+    Value: !Ref CWLogsCMK
+    Export:
+      Name: "CustomerManagedEncryptionKey"
+  
