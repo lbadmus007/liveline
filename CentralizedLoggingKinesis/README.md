@@ -5,7 +5,7 @@
 SSM Instance Profile
 https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-create-iam-instance-profile.html#create-iam-instance-profile-ssn-logging
 
-## Pre-Requisitives
+## Pre-Requisites
 
 Before starting registering the on-premises hosts, you need to populate 02 environment files for aws user authentication. 
 
@@ -43,17 +43,17 @@ Steps to be executed on Centralized/Destination Logging Account
   ## KinesisLogGroupName: Kinesis CloudWatch Log Group Name
   ## KinesisLogStreamName: Kinesis CloudWatch Log Stream Name
   ## KinesisS3BucketPrefix: S3 bucket prefix name attached to Kinesis Firehose
-  ## s3bucketname: S3 bucket name attached to Kinesis Firehose
+  ## s3bucketname: S3 bucket name attached to Kinesis Firehose - bucket needs to exist
 ```
 Steps to be executed on Source AWS Account
 
 ```
-- Deploy CFT 'SourceAccount.yaml'
+- Deploy CFT 'SourceAccount.yaml' #Log ssource Account
 
   # This will create CloudWatch Log Group, KMS Key, IAM Role and their related components
 ```
 
-  ### CFT is expecting below paramters to run, by default parameters values are present in it but update the same as per the requirement
+  ### CFT requires the parameters listed below to run; default parameters values are present in it but update parameters to suit your environment.
 ```
   ## LogGroupName: CloudWatch Log Group name to which SSM logs will be forwarded
   ## CMKAliasName: KMS Key Alias name attached to KMS key
@@ -62,7 +62,7 @@ Steps to be executed on Source AWS Account
   ## LogPusherRoleName: Name of an IAM role used to push log events to the destination
 ```
 
-Allow using Advanced Tier for on-premises activation under Source AWS Account
+Enable using Advanced Tier for on-premises activation under Source AWS Account SSM
 
 ```
   ## Go to Service AWS System Manager -> Fleet Manager -> Settings -> Change Instance tier settings -> Accept the warning -> Click on Change setting
@@ -86,7 +86,7 @@ About create_activation_script.sh
   # This shell script is used for creating the create-activation, helps in registering the on-premises hosts
 ```
 
-  ### The shell script requires below 04 arguments 
+  ### The shell script requires the smaple arguments below (04 arguments) 
 ```
   ## 1. CFT Name: Name of the CFT deployed on Source AWS Account
   ## 2. On-Premises Host Name: Name of on-premises host to be located under AWS Systems Manager [Fleet Manager] Console
@@ -100,12 +100,6 @@ About create_activation_script.sh
   ## 2. nohup ./create_activation_script.sh ARG1 ARG2 ARG3 ARG4 > create_activation_script.logs & 
   ## Example: nohup ./create_activation_script.sh CWLG OnPremisesHost arn:aws:logs:us-east-1:XXXXXXXX:destination:CentralisedLogss arn:aws:iam::XXXXXXXXXXXX:role/CentralisedLogsPusher > 
      create_activation_script.logs &
-  
-  ## Below areguments are required to run above shell script
-  ## Arg1: Source Account CFN ARN
-  ## Arg2: On-Premise Host Name to be registered using Create-Activation
-  ## Arg3: Centralized/Destination Account Destionation ARN
-  ## Arg4: Source Account Pusher IAM Role
   
 ```
   ### Verification Step

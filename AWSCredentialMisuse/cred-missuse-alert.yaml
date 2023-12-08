@@ -1,0 +1,116 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'EventBridge Rule: Detect and Notify on GuardDuty Findings'
+Resources:
+  EventRule:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      Name: "guardduty-credential-misuse-finding"
+      Description: "An EventBridge/CloudWatch Event Rule that triggers on Amazon GuardDuty findings."
+      EventPattern:
+        source:
+          - "aws.guardduty"
+        detail-type:
+          - "GuardDuty Finding"
+        detail:
+          type:
+            - "Discovery:IAMUser/AnomalousBehavior"
+            - "InitialAccess.AMUser/AnomalousBehavior"
+            - "UnauthorizedAccess:IAMUser/ConsoleLoginSuccess.B"
+          severity:
+            - 5
+            - 5.1
+            - 5.2
+            - 5.3
+            - 5.4
+            - 5.5
+            - 5.6
+            - 5.7
+            - 5.8
+            - 5.9
+            - 6
+            - 6.1
+            - 6.2
+            - 6.3
+            - 6.4
+            - 6.5
+            - 6.6
+            - 6.7
+            - 6.8
+            - 6.9
+            - 7
+            - 7.1
+            - 7.2
+            - 7.3
+            - 7.4
+            - 7.5
+            - 7.6
+            - 7.7
+            - 7.8
+            - 7.9
+            - 8
+            - 8.1
+            - 8.2
+            - 8.3
+            - 8.4
+            - 8.5
+            - 8.6
+            - 8.7
+            - 8.8
+            - 8.9
+      State: "ENABLED"
+      Targets:
+      - Arn: !Ref Topic
+        Id: "target-id"
+        InputTransformer:
+          InputPathsMap:
+            Account_ID: "$.detail.accountId"
+            Finding_ID: "$.detail.id"
+            Finding_Type: "$.detail.type"
+            Finding_description: "$.detail.description"
+            region: "$.region"
+            severity: "$.detail.severity"
+          InputTemplate: >-
+            "AWS <Account_ID> has a severity <severity> GuardDuty finding type <Finding_Type> in the <region> region."
+            "Finding Description:"
+
+            "<Finding_description>. "
+
+            "For more details open the GuardDuty console at 
+            https://console.aws.amazon.com/guardduty/home?region=<region>#/findings?search=id=<Finding_ID>"
+  Topic:
+    Type: 'AWS::SNS::Topic'
+    Properties:
+      DisplayName: "cred-misuse-rule"
+      Subscription:
+      - Protocol: "email"
+        Endpoint: "notification-email.com"    #Please update email to team's security email handle
+      TopicName: "cred-misuse-action"
+  TopicPolicy:
+    Type: 'AWS::SNS::TopicPolicy'
+    Properties:
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Action:
+          - "SNS:GetTopicAttributes"
+          - "SNS:SetTopicAttributes"
+          - "SNS:AddPermission"
+          - "SNS:RemovePermission"
+          - "SNS:DeleteTopic"
+          - "SNS:Subscribe"
+          - "SNS:ListSubscriptionsByTopic"
+          - "SNS:Publish"
+          - "SNS:Receive"
+          Effect: "Allow"
+          Principal:
+            AWS: "*"
+          Resource: "Topic"
+          Sid: "__default_statement_ID"
+        - Action: "sns:Publish"
+          Effect: "Allow"
+          Principal:
+            Service: "events.amazonaws.com"
+          Resource: !Ref Topic
+          Sid: "TrustCWEToPublishEventsToMyTopic"
+      Topics:
+      - !Ref Topic

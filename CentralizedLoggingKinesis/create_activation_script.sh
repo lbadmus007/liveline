@@ -4,7 +4,7 @@
 echo "Running the file: $0"
 
 echo ".......... Downloading required packages ..........."
-yum update -y
+sudo yum update -y
 sudo yum install curl -y
 sudo yum install unzip -y
 sudo yum install chrony -y
