@@ -101,6 +101,12 @@ About create_activation_script.sh
   ## Example: nohup ./create_activation_script.sh CWLG OnPremisesHost arn:aws:logs:us-east-1:XXXXXXXX:destination:CentralisedLogss arn:aws:iam::XXXXXXXXXXXX:role/CentralisedLogsPusher > 
      create_activation_script.logs &
   
+  ## Below areguments are required to run above shell script
+  ## Arg1: Source Account CFN ARN
+  ## Arg2: On-Premise Host Name to be registered using Create-Activation
+  ## Arg3: Centralized/Destination Account Destionation ARN
+  ## Arg4: Source Account Pusher IAM Role
+  
 ```
   ### Verification Step
 ```

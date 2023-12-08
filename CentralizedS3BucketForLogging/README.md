@@ -51,11 +51,6 @@ You may also want to run multiple docker containers simultaniously to make pipel
 - Copy AddSSMForOnPremise.sh file to the application aws account on-premises linux machine and execute it as per below commands
   # chmod +x AddSSMForOnPremise.sh SessionManagerRunShell.json
   # nohup ./AddSSMForOnPremise.sh Liveline liveline-bucketdetailsss 367521952991 arn:aws:kms:us-east-1:082494019291:key/7be77241-dbf3-4255-af88-a7ecba80debf > AddSSMForOnPremise.logs &
-
-  # Arg1: Source Account CFN ARN
-  # Arg2: On-Premise Host Name to be registered using Create-Activation
-  # Arg3: Centralized/Destination Account Destionation ARN
-  # Arg4: Source Account Pusher IAM Role
   
   # The .sh file requires below 04 arguments:
   # 1 - Name of CFT deployed to application aws account
