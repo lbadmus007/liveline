@@ -90,6 +90,13 @@ Resources:
                     - s3:GetEncryptionConfiguration
                   Resource: 
                     - !Sub arn:aws:s3:::${S3BucketName}
+                # - Effect: Allow
+                #   Action: 
+                #     - logs:CreateLogStream
+                #     - logs:PutLogEvents
+                #   Resource: 
+                #     - arn:aws:logs:us-east-1:367521952991:log-group:/aws/ssm/SessionManagerLogs:*
+                    # - !Sub arn:aws:s3:::${S3BucketName}
 
 Outputs:
   HybridActivationIAMRole:
