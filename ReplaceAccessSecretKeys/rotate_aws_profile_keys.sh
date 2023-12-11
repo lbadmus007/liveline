@@ -1,15 +1,21 @@
+##############################################################################################################################################
+##    PLEASE ADD BELOW PERMISSIONS TO IAM ROLE ATTACHED TO THE ON-PREMISE INSTANCE AS A PRE-REQUISITVE                                      ##
+##              secretsmanager:ListSecrets                                                                                                  ##
+##              secretsmanager:GetSecretValue                                                                                               ##
+##############################################################################################################################################
 #!/bin/bash
 
 echo "........... Initiating the execution ............".
 
+# List all secrets having specific description, access and secret keys are stored in aws secret manager
 export var=$(aws secretsmanager list-secrets --filter Key="description",Values="Auto-created secret" --query "SecretList[].Name" --output text)
 
 #echo $var
-
+# Iterating secrets one-by-one, fetching keys, replace them in the different file locations
 for value in $var
 do
         #echo $value
-        if [[ "$value" == *LL_CloudWatch_AgentUser* ]]
+        if [[ "$value" == *XYZ* ]]
         then
                 echo "........... Reading access and secret keys from secret: $value"
                 export new_access_key=$(aws secretsmanager get-secret-value --secret-id $value --output json | jq --raw-output .SecretString | jq -r ."AccessKeyId")
@@ -19,12 +25,12 @@ do
                 echo $new_secret_key
 
                 echo "....... Replacing access and secret keys ..........."
-                cat /home/cwagent/.aws/credentials
-                sed -i -r -e "s:^(aws_access_key_id =).*:\1 $new_access_key:" -e "s:^(aws_secret_access_key =).*:\1 $new_secret_key:" /home/cwagent/.aws/credentials
-                cat /home/cwagent/.aws/credentials
+                cat ~/.aws/credentials_1
+                sed -i -r -e "s:^(aws_access_key_id =).*:\1 $new_access_key:" -e "s:^(aws_secret_access_key =).*:\1 $new_secret_key:" ~/.aws/credentials_1
+                cat ~/.aws/credentials_1
                 echo "................................................................................................................................................"
 
-        elif [[ "$value" == *InnovationOnPrem* ]]
+        elif [[ "$value" == *ABC* ]]
         then
                 echo "........... Reading access and secret keys from secret: $value"
                 echo $value
@@ -35,9 +41,9 @@ do
                 echo $new_secret_key
 
                 echo "....... Replacing access and secret keys ..........."
-                cat /home/innovation/.aws/credential
-                sed -i -r -e "s:^(aws_access_key_id =).*:\1 $new_access_key:" -e "s:^(aws_secret_access_key =).*:\1 $new_secret_key:" /home/innovation/.aws/credential
-                cat /home/innovation/.aws/credential
+                cat ~/.aws/credentials_2
+                sed -i -r -e "s:^(aws_access_key_id =).*:\1 $new_access_key:" -e "s:^(aws_secret_access_key =).*:\1 $new_secret_key:" ~/.aws/credentials_2
+                cat ~/.aws/credentials_2
                 echo "................................................................................................................................................"
         else
                 echo "........... Reading access and secret keys from secret: $value"
@@ -49,11 +55,9 @@ do
                 echo $new_secret_key
 
                 echo "....... Replacing access and secret keys ..........."
-                cat /etc/systemd/system/docker.service.d/override.conf
-                sudo sed -i -r -e "s:^(aws_access_key_id =).*:\1 $new_access_key:" -e "s:^(aws_secret_access_key =).*:\1 $new_secret_key:" /etc/systemd/system/docker.service.d/override.conf
-                systemctl reload docker
-                systemctl restart docker
-                cat /etc/systemd/system/docker.service.d/override.conf
+                cat ~/.aws/credentials_3
+                sed -i -r -e "s:^(aws_access_key_id =).*:\1 $new_access_key:" -e "s:^(aws_secret_access_key =).*:\1 $new_secret_key:" ~/.aws/credentials_3
+                cat ~/.aws/credentials_3
         fi
 done
 
