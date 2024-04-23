@@ -4,16 +4,36 @@ Transform: AWS::LanguageExtensions
 AWSTemplateFormatVersion: 2010-09-09
 
 Description: CloudFormation Stack For Receiving CloudWatch Log Group [Log Streams] and Streaming Using Kinesis Firehose
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Bucket configuration
+        Parameters:
+          - CreateNewBucket
+          - BucketAcl
 
 Parameters:
+  CreateNewBucket:
+    Type: String
+    Default: true
+    AllowedValues:
+      - true
+      - false
+  BucketAcl:
+    Description: Provide a ACL for S3 bucket.
+    Type: String
+    Default: Private
+    AllowedValues:
+      - Private
 
   OrgId:
     Type: String
-    Default: o-n0je1b1d4k
+    Default: r-zgfd
 
   CWLogsDestinationName:
     Type: String
-    Default: CentralisedLogss
+    Default: CentralisedLog
 
   KinesisLogGroupName:
     Type: String
@@ -27,22 +47,47 @@ Parameters:
     Type: String
     Default: firehose/
 
-  s3bucketname:
-    Type: String
-    Default: liveline-rahul
-    
+  # s3bucketname:
+  #   Type: String
+  #   Default: liveline-rahul
+
+Conditions:
+  CreateNewBucket: !Equals [!Ref CreateNewBucket, "true"]  
+
 Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    Condition: CreateNewBucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Join 
+        - "-"
+        - - ssm
+          - larry
+          - logging
+          - !Sub ${AWS::AccountId}
+      Tags:
+        - Key: Name
+          Value: !Join 
+            - "-"
+            - - ssm
+              - larry
+              - logging
+              - !Sub ${AWS::AccountId}    
+      AccessControl: !Ref BucketAcl
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256    
 
   KinesisFirehoseStream:
     DependsOn:
       - KinesisFirehoseStreamPolicy
+      - S3Bucket
     Type: AWS::KinesisFirehose::DeliveryStream
     Properties:
       ExtendedS3DestinationConfiguration:
-        BucketARN: !Join 
-          - ''
-          - - 'arn:aws:s3:::'
-            - !Ref s3bucketname
+        BucketARN: !GetAtt S3Bucket.Arn
         BufferingHints:
           IntervalInSeconds: 60
           SizeInMBs: 50 
@@ -63,11 +108,6 @@ Resources:
           LogGroupName: !Ref KinesisLogGroupName
           LogStreamName: !Ref KinesisLogStreamName
 
-  # s3bucket:
-  #   Type: AWS::S3::Bucket
-  #   Properties:
-  #     BucketName: !Ref s3bucketname
-
   KinesisFirehoseStreamRole:
     Type: AWS::IAM::Role
     Properties:
@@ -81,6 +121,8 @@ Resources:
             Action: 'sts:AssumeRole'
 
   KinesisFirehoseStreamPolicy:
+    DependsOn:
+      - S3Bucket
     Type: AWS::IAM::Policy
     Properties:
       PolicyName: kinesis_firehose_stream_policy
@@ -96,16 +138,8 @@ Resources:
               - 's3:ListBucketMultipartUploads'
               - 's3:PutObject'
             Resource:
-              - !Join 
-                - ''
-                - - 'arn:aws:s3:::'
-                  - !Ref s3bucketname
-                  - '*'
-              - !Join 
-                - ''
-                - - 'arn:aws:s3:::'
-                  - !Ref s3bucketname
-                  - '*'
+              - !Sub 'arn:aws:s3:::${S3Bucket}/*'
+              - !Sub 'arn:aws:s3:::${S3Bucket}'
           - Effect: Allow
             Action:
               - 'logs:CreateLogGroup'
@@ -370,7 +404,8 @@ Resources:
           Version: 2012-10-17
           Statement:
             - Effect: Allow
-              Principal: "*"
+              Principal: 
+                AWS: "${AWS::AccountId}"
               Action: logs:PutSubscriptionFilter 
               Resource: "*"
                 # - !Sub arn:aws:logs:${AWS::Region}:367521952991:destination:CentralisedLogss
@@ -403,3 +438,6 @@ Resources:
 Outputs:
   CWDestinationArn:
     Value: !GetAtt CWLogsDestination.Arn
+
+  BucketARN:
+    Value: !GetAtt S3Bucket.Arn

@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  Deploy a Lambda function to associate VPCs with specific accounts based on predefined mappings, using an existing Private Hosted Zone.
+Parameters:
+  PHZDomainName:
+    Description: The domain name for the existing Private Hosted Zone.
+    Type: String
+  AccountVPCMappings:
+    Description: JSON string mapping of account IDs to their VPC configurations.
+    Type: String
+
+Resources:
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: 'sts:AssumeRole'
+      Policies:
+      - PolicyName: LambdaExecutionPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'logs:CreateLogGroup'
+            - 'logs:CreateLogStream'
+            - 'logs:PutLogEvents'
+            Resource: 'arn:aws:logs:*:*:*'
+          - Effect: Allow
+            Action:
+            - 'route53:CreateVPCAssociationAuthorization'
+            - 'route53:ListHostedZonesByName'
+            - 'cloudformation:*'
+            Resource: '*'
+
+  MyLambdaFunction:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: 'index.lambda_handler'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          import boto3
+          import os
+          import cfnresponse
+
+          def lambda_handler(event, context):
+              try:
+                  phz_domain_name = os.environ['PHZ_DOMAIN_NAME']
+                  account_vpc_mappings = json.loads(os.environ['ACCOUNT_VPC_MAPPINGS'])
+                  client = boto3.client('route53')
+
+                  # Existing logic to handle the resource based on event['RequestType']
+                  # Handle Create, Update, or Delete events
+                  if event['RequestType'] == 'Delete':
+                      # Add logic to handle deletion if necessary
+                      pass
+                  else:
+                      # Logic to handle creation or update
+                      # Find the HostedZoneId for the given PHZ domain name
+                      zones = client.list_hosted_zones_by_name(DNSName=phz_domain_name)
+                      hosted_zone_id = None
+                      for zone in zones['HostedZones']:
+                          if zone['Name'] == phz_domain_name + '.':
+                              hosted_zone_id = zone['Id']
+                              break
+
+                      if not hosted_zone_id:
+                          raise ValueError("No HostedZone found for {}".format(phz_domain_name))
+
+                      for k, v in json.loads(account_vpc_mappings).items():
+                          response = client.create_vpc_association_authorization(
+                              HostedZoneId=hosted_zone_id,
+                              VPC={
+                                  'VPCRegion': v['VPCRegion'],
+                                  'VPCId': v['VPCId']
+                              }
+                          )
+                          print("Authorization request sent for account ID {}: {}".format(k, response))
+
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, {"Status": "Success"})
+              except Exception as e:
+                  cfnresponse.send(event, context, cfnresponse.FAILED, {"Status": "Failure", "Data": str(e)})
+
+      Environment:
+        Variables:
+          PHZ_DOMAIN_NAME: !Ref PHZDomainName
+          ACCOUNT_VPC_MAPPINGS: !Ref AccountVPCMappings
+      Runtime: python3.9
+      Timeout: 30
+
+  CustomResource:
+    Type: "AWS::CloudFormation::CustomResource"
+    Properties:
+      ServiceToken: !GetAtt MyLambdaFunction.Arn
+
+Outputs:
+  LambdaFunctionArn:
+    Description: The ARN of the Lambda function
+    Value: !GetAtt MyLambdaFunction.Arn
