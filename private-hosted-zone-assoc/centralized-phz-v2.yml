@@ -1,6 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
-  Deploy a Lambda function to associate VPCs with specific accounts based on predefined mappings, using an existing Private Hosted Zone.
+  Deploy a Lambda function to associate VPCs with specific accounts based on predefined mappings, using an existing Private Hosted Zone. To be deployed in a CFN Stack
 Parameters:
   PHZDomainName:
     Description: The domain name for the existing Private Hosted Zone.
