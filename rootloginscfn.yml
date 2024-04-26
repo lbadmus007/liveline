@@ -1,0 +1,274 @@
+###########################################################################################
+# This CFN template deploys a Rootlogin notification solution to an email endpoint  using #
+# SNS Topic Subscription, a centralized S3 bucket for logs is required to be passed in    #
+# and a local trail is created in each account that the solution is deployed.             #
+# Pass in an S3 bucket ARN and name during deployment for S3 access logs, run automation. #
+###########################################################################################
+AWSTemplateFormatVersion: 2010-09-09
+Description: Creates a S3 bucket, log group, cloudtrail and SNS topic along with subscription.
+# Metadata for parameter groups and labels
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label:
+          default: Root Logins configuration
+        Parameters:
+          - BucketName
+          - TrailName
+          - Email
+          - LogGroupName
+          - LogRetentionPeriod
+          - TopicName
+# Input parameters for the CloudFormation stack        
+Parameters:
+  TrailName:
+    Type: String
+    Description: CloudTrail name
+  Email:
+    Type: String
+    Description: Provide Email
+  LogGroupName:
+    Type: String
+    Description: Log group name
+    Default: rootlogins
+  LogRetentionPeriod:
+    Type: Number
+    Default: 5
+    Description: Log retention days
+  TopicName:
+    Type: String
+    Description: Enter your SNS name here.
+  # Existing log bucket to feed into the cloudtrail  
+  s3BucketAccessLogarn:
+    Type: String
+    Description: Enter s3 access log bucket arn.  
+    Default: arn:aws:s3:::liveline-ssm-logs-store
+  s3BucketAccessName:
+    Type: String
+    Description: Enter s3 access log bucket Name. 
+
+# AWS resources created by this CloudFormation template
+Resources:
+# SNS Topic for notifications
+  SNSTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      DisplayName: "Root User Login"
+      TopicName: !Ref TopicName
+# SNS Topic email subscription
+  MySNSSubscription:
+    Type: AWS::SNS::Subscription
+    Properties:
+      Protocol: email
+      TopicArn: !Ref SNSTopic
+      Endpoint: !Ref Email
+# S3 bucket for CloudTrail logs
+  s3BucketForTrailData:
+    Type: "AWS::S3::Bucket"
+    Properties:
+      BucketName: !Join 
+        - "-"
+        - - !Ref s3BucketAccessName
+          - !Ref AWS::AccountId
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+# S3 bucket policy for CloudTrail access  
+  trailBucketPolicy:
+    Type: "AWS::S3::BucketPolicy"
+    Properties:
+      Bucket: !Ref s3BucketForTrailData
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: "cloudtrail.amazonaws.com"
+          Action: "s3:GetBucketAcl"
+          Resource: !Sub "arn:aws:s3:::${s3BucketForTrailData}"
+        - Effect: Allow
+          Principal:
+            Service: "cloudtrail.amazonaws.com"
+          Action: "s3:PutObject"
+          Resource: !Sub "arn:aws:s3:::${s3BucketForTrailData}/AWSLogs/${AWS::AccountId}/*"
+          Condition:
+            StringEquals:
+              "s3:x-amz-acl": "bucket-owner-full-control"
+# CloudWatch Logs log-group
+  LogGroup: 
+    Type: AWS::Logs::LogGroup
+    Properties:
+      RetentionInDays: 365 
+# IAM role for CloudTrail service
+  CloudTrailLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Statement:
+        - Action: sts:AssumeRole
+          Effect: Allow
+          Principal:
+            Service: cloudtrail.amazonaws.com
+        Version: '2012-10-17'
+  CloudTrailLogsPolicy: 
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyDocument:
+        Statement:
+        - Action:
+          - logs:PutLogEvents
+          - logs:CreateLogStream
+          Effect: Allow
+          Resource:
+            Fn::GetAtt:
+            - LogGroup
+            - Arn
+        Version: '2012-10-17'
+      PolicyName: DefaultPolicy
+      Roles:
+      - Ref: CloudTrailLogsRole
+  cloudTrailTrail:
+    Type: "AWS::CloudTrail::Trail"
+    DependsOn:
+      - trailBucketPolicy
+      - CloudTrailLogsPolicy
+      - CloudTrailLogsRole
+    Properties:
+      IsLogging: true
+      S3BucketName: !Ref s3BucketForTrailData
+      EventSelectors:
+        - DataResources:
+            - Type: "AWS::S3::Object"
+              Values:
+                - !Sub "${s3BucketAccessLogarn}/"
+          IncludeManagementEvents: true
+          ReadWriteType: All
+      CloudWatchLogsLogGroupArn: !GetAtt LogGroup.Arn
+      CloudWatchLogsRoleArn: !GetAtt CloudTrailLogsRole.Arn
+# A Lambda function that triggers on root user logins, extracts relevant data, and publishes a message to the SNS topic.
+  RootLoginFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          import os
+
+          def lambda_handler(event, context):
+              # Extract the desired fields from the event
+              event_id = event['detail']['eventID']
+              event_time = event['detail']['eventTime']
+              event_name = event['detail']['eventName']
+              event_type = event['detail']['eventType']
+              user_agent = event['detail']['userAgent']
+              aws_region = event['detail']['awsRegion']
+              source_ip = event['detail']['sourceIPAddress']
+              type = event['detail']['userIdentity']['type']
+              arn = event['detail']['userIdentity']['arn']
+              account_id = event['detail']['userIdentity']['accountId']
+              type = event['detail']['userIdentity']['type']
+              arn = event['detail']['userIdentity']['arn']
+              account_id = event['detail']['userIdentity']['accountId']
+              user_name = event['detail']['userIdentity']['principalId']
+              creation_date = event['time']
+              mfa_authenticated = event['detail']['additionalEventData']['MFAUsed']
+
+              # Log the extracted fields
+              print("EventType: ", event_type)
+              print("EventId: ", event_id)
+              print("EventTime: ", event_time)
+              print("EventName: ", event_name)
+
+              # Send an email using AWS SNS
+              sns = boto3.client('sns', region_name = os.environ['region_name'])
+              topic_arn = os.environ['topic_arn']
+              message = f"""
+              EventType: {event_type}
+              EventId: {event_id}
+              EventTime: {event_time}
+              EventName: {event_name}
+              UserAgent: {user_agent}
+              AWS Region: {aws_region}
+              SourceIPAddress: {source_ip}
+                    
+              UserIdentity
+                
+              type: AssumedRole
+              arn: {arn}
+              accountId: {account_id}
+              type: {type}
+              arn: {arn}
+              accountId: {account_id}
+              userName: {user_name}
+              creationDate: {creation_date}
+              mfaAuthenticated: {mfa_authenticated}
+              """
+
+              subject = f"New event: {event_name}"
+              response = sns.publish(
+                  TopicArn=topic_arn,
+                  Message=message,
+                  Subject=subject
+              )
+              print(f"Sent email with message ID: {response['MessageId']}")
+
+              # Return the extracted fields as output
+              return {
+                  "EventType": event_type,
+                  "EventId": event_id,
+                  "EventTime": event_time,
+                  "EventName": event_name
+              }
+      Handler: index.lambda_handler
+      Role: !GetAtt RootLoginFunctionRole.Arn
+      Runtime: python3.8
+      Environment:
+        Variables:
+          topic_arn: !Ref 'SNSTopic'
+          region_name: !Sub ${AWS::Region}
+  RootLoginFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - 'sts:AssumeRole'
+      Path: /
+      Policies:
+        - PolicyName: 'RootLoginFunctionPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 'sns:Publish'
+                Resource: !Ref SNSTopic
+  EventBridgeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "EventBridge rule for AWS Console Sign In via CloudTrail"
+      EventPattern:
+        source:
+          - "aws.signin"
+        detail-type:
+          - "AWS Console Sign In via CloudTrail"
+        detail:
+          userIdentity:
+            type:
+              - "Root"
+      State: ENABLED
+      Targets:
+        - Arn: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${RootLoginFunction}"
+          Id: "RootLoginFunctionTarget"
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !GetAtt RootLoginFunction.Arn
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt EventBridgeRule.Arn
