@@ -24,13 +24,9 @@ Parameters:
     AllowedValues:
       - Private
 
-  OrgId:
-    Type: String
-    Default: r-zgfd
-
   CWLogsDestinationName:
     Type: String
-    Default: CentralisedLog
+    Default: CentralisedSSMLog
 
   KinesisLogGroupName:
     Type: String
@@ -44,10 +40,6 @@ Parameters:
     Type: String
     Default: firehose/
 
-  # s3bucketname:
-  #   Type: String
-  #   Default: liveline-rahul
-
 Conditions:
   CreateNewBucket: !Equals [!Ref CreateNewBucket, "true"]  
 
@@ -60,7 +52,7 @@ Resources:
       BucketName: !Join 
         - "-"
         - - ssm
-          - larry
+          - larry-test
           - logging
           - !Sub ${AWS::AccountId}
       Tags:
@@ -68,7 +60,7 @@ Resources:
           Value: !Join 
             - "-"
             - - ssm
-              - larry
+              - larry-test
               - logging
               - !Sub ${AWS::AccountId}    
       AccessControl: !Ref BucketAcl
@@ -395,9 +387,8 @@ Resources:
       DestinationName: !Ref CWLogsDestinationName
       RoleArn: !GetAtt CWLogsDestinationRole.Arn
       TargetArn: !GetAtt KinesisFirehoseStream.Arn
-      # !Ref FirehoseArn
       DestinationPolicy: >
-        "{\"Version\":\"2012-10-17T00:00:00.000Z\",\"Statement\":[{\"Effect\":\"Allow\",\"Principal\":{\"AWS\":\"${AWS::AccountId}\"},\"Action\":\"logs:PutSubscriptionFilter\",\"Resource\":\"*\",\"Condition\":{\"StringEquals\":\"aws:PrincipalOrgID:!RefOrgId\"}}]}"
+        {"Version" : "2012-10-17","Statement" : [{"Effect" : "Allow", "Principal" : {"AWS" : "logs.amazonaws.com"}, "Action" : "logs:PutSubscriptionFilter", "Resource" : "*"}]}
 
   CWLogsDestinationRole:
     Type: AWS::IAM::Role
@@ -416,7 +407,6 @@ Resources:
             Statement:
               - Effect: Allow
                 Resource: !GetAtt KinesisFirehoseStream.Arn
-                # !Ref FirehoseArn
                 Action: firehose:PutRecord*
                 # the AWS docs say to grant "firehose:*" -- how weird is that?
 
