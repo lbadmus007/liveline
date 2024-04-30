@@ -6,9 +6,9 @@ A JSON formatted string for the AWS CloudFormation parameter `AccountVPCMappings
 A Lambda function is deploy which makes an API  call to all listed target accounts/VPCs for a phz asoociation request.
 
 ### Sample JSON String passed in ###
- "{\"21000000000\":{\"VPCId\":\"vpc-00d2b000000000\",\"VPCRegion\":\"us-east-1\"},\"243000000000\":{\"VPCId\":\"vpc-0f35224000000000b\",\"VPCRegion\":\"us-east-2\"}}"
+ `"{\"21000000000\":{\"VPCId\":\"vpc-00d2b000000000\",\"VPCRegion\":\"us-east-1\"},\"243000000000\":{\"VPCId\":\"vpc-0f35224000000000b\",\"VPCRegion\":\"us-east-2\"}}"`
  
- Please update the strin with appropriate target account and vpc id's and the target regions for each vpc. Also not that the string can be extended to accomodate more vpc's.
+ Please update the string with appropriate target account and vpc id's and the target regions for each vpc. Also note that the string can be extended to accomodate more vpc's. Finally, each item in the JSON stanza has to be escaped to allow CFN recongnize the string. 
 
 At the completion of a successful deployment of the VPC association request CFN, a separate CFN `accept-vpc-assoc-to-phz.yml` needs to be deployed to each account that a request was made to. 
 
