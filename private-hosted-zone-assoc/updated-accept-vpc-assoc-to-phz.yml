@@ -1,0 +1,97 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  A CloudFormation template that deploys a Lambda function which handles 'associate_vpc_with_hosted_zone' requests using environment variables and SSM Parameter Store in a target AWS account, to be deployed using CFN stacksets
+
+Parameters:
+  HostedZoneId:
+    Type: String
+    Default: 'default-hosted-zone-id'  # Provide a default Hosted Zone ID or allow users to override
+    Description: The ID of the Hosted Zone to be associated with a VPC.
+
+Resources:
+  LambdaExecutionRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: lambda.amazonaws.com
+          Action: 'sts:AssumeRole'
+      Policies:
+      - PolicyName: LambdaVPCAssociationPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - 'route53:AssociateVPCWithHostedZone'
+            Resource: '*'
+          - Effect: Allow
+            Action:
+            - 'logs:CreateLogGroup'
+            - 'logs:CreateLogStream'
+            - 'logs:PutLogEvents'
+            Resource: 'arn:aws:logs:*:*:*'
+          - Effect: Allow
+            Action:
+            - 'ec2:DescribeVpcs'
+            - 'ec2:DescribeVpcAttribute'
+            - 'cloudformation:*'
+            - 'ssm:GetParameter'
+            Resource: '*'
+
+  VPCWithHostedZoneLambda:
+    Type: 'AWS::Lambda::Function'
+    Properties:
+      Handler: 'index.lambda_handler'
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import boto3
+          import json
+          from datetime import datetime
+          import cfnresponse
+
+          class DateTimeEncoder(json.JSONEncoder):
+              def default(self, obj):
+                  if isinstance(obj, datetime):
+                      return obj.isoformat()
+                  return super(DateTimeEncoder, self).default(obj)
+
+          def lambda_handler(event, context):
+              ssm_client = boto3.client('ssm')
+              route53_client = boto3.client('route53')
+
+              # Fetch the VPC ID and Region from SSM Parameter Store
+              vpc_id = ssm_client.get_parameter(Name='VPCId')['Parameter']['Value']
+              vpc_region = ssm_client.get_parameter(Name='VPCRegion')['Parameter']['Value']
+
+              response_data = {}
+              try:
+                  # Attempt to associate VPC with hosted zone
+                  response = route53_client.associate_vpc_with_hosted_zone(
+                      HostedZoneId=event['ResourceProperties']['HostedZoneId'],  # Fetch from the CFN parameter
+                      VPC={
+                          'VPCRegion': vpc_region,
+                          'VPCId': vpc_id
+                      },
+                      Comment='Associating VPC with Hosted Zone'
+                  )
+                  # Store success data
+                  response_data['Status'] = 'SUCCESS'
+                  response_data['Data'] = json.dumps(response, cls=DateTimeEncoder)
+                  cfnresponse.send(event, context, cfnresponse.SUCCESS, response_data)
+              except Exception as e:
+                  # Handle exceptions and send failed response
+                  response_data['Status'] = 'FAILED'
+                  response_data['Data'] = str(e)
+                  cfnresponse.send(event, context, cfnresponse.FAILED, response_data)
+      Runtime: python3.9
+      Timeout: 30
+
+Outputs:
+  LambdaFunctionArn:
+    Description: The ARN of the Lambda function
+    Value: !GetAtt VPCWithHostedZoneLambda.Arn
