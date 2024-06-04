@@ -1,0 +1,154 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: CloudFormation template to configure CloudWatch logs for SSM user logs across multiple accounts using StackSets
+
+Parameters:
+  CloudWatchLogGroupName:
+    Type: String
+    Default: /aws/ssm/SessionManagerLogg
+    Description: The name of the CloudWatch log group to forward logs to.
+  CommonTagKey:
+    Type: String
+    Description: The key of the common tag to identify EC2 instances.
+    Default: cdw-managed
+  CommonTagValue:
+    Type: String
+    Description: The value of the common tag to identify EC2 instances.
+    Default: 'true'
+  SSMRoleArn:
+    Type: String
+    Description: The ARN of the existing SSM role.
+    Default: 'arn:aws:iam::236075985446:role/ec2-core-instance-profile'
+  CMKAliasName:
+    Type: String
+    Description: Customer Managed Key Alias Name to be attached to CMK
+    Default: alias/Liveline-CMK
+
+Resources:
+  CWLogsCMK:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: CMK attached to Cloudwatch Log Group and added to SSM Settings
+      KeyPolicy:
+        Version: 2012-10-17
+        Id: CWLogsCMKPolicies
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow administration of the key
+            Effect: Allow
+            Principal:
+              Service: !Sub 'logs.${AWS::Region}.amazonaws.com'
+            Action: 
+              - kms:Encrypt*
+              - kms:Decrypt*
+              - kms:ReEncrypt*
+              - kms:GenerateDataKey*
+              - kms:Describe*
+            Resource: '*'
+            Condition:
+              ArnEquals:
+                kms:EncryptionContext:aws:logs:arn:
+                  !Sub 
+                      - 'arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:${CWLogGroupName}'
+                      - { CWLogGroupName: !Ref CloudWatchLogGroupName }
+
+  SSMDocument:
+    Type: AWS::SSM::Document
+    Properties:
+      DocumentType: Command
+      Content:
+        schemaVersion: "2.2"
+        description: "Configures CloudWatch to capture SSM user logs and forward them to a specified CloudWatch log group."
+        mainSteps:
+          - action: "aws:runCommand"
+            name: "configureSSMUserLogs"
+            inputs:
+              DocumentName: "AWS-RunShellScript"
+              Targets:
+                - Key: "tag:{{CommonTagKey}}"
+                  Values: 
+                    - "{{CommonTagValue}}"
+              Parameters:
+                commands:
+                  - "sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c ssm:/AmazonCloudWatch-linux -s"
+                  - "sudo sed -i 's@\"logs\": {@\"logs\": {\"log_stream_name\":\"{instance_id}/ssm-user\", \"file_path\":\"/var/log/amazon/ssm/amazon-ssm-agent.log\", \"log_group_name\":\"{{CloudWatchLogGroupName}}\", @' /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json"
+                  - "sudo systemctl restart amazon-cloudwatch-agent"
+
+  CloudWatchLogGroup:
+    DependsOn: CWLogsCMK  
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Ref CloudWatchLogGroupName
+      KmsKeyId: !GetAtt CWLogsCMK.Arn
+      RetentionInDays: 7
+
+  InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+      - !Ref SSMRoleArn
+
+  SSMAssociation:
+    Type: AWS::SSM::Association
+    Properties:
+      Name: !Ref SSMDocument
+      Targets:
+        - Key: "tag:{{CommonTagKey}}"
+          Values:
+            - !Ref CommonTagValue
+      Parameters:
+        LogGroupName:
+          - !Ref CloudWatchLogGroupName
+      AssociationName: "ConfigureSSMUserLogs"
+      ScheduleExpression: "rate(1 day)"
+
+  AutomationRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service: ssm.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: AutomationPolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - "ssm:StartAutomationExecution"
+            - "ssm:GetAutomationExecution"
+            - "ssm:DescribeAutomationExecutions"
+            - "ssm:DescribeDocument"
+            - "ssm:GetDocument"
+            - "ssm:ListDocuments"
+            - "ssm:SendCommand"
+            - "ec2:DescribeInstances"
+            - "logs:CreateLogGroup"
+            - "logs:DescribeLogGroups"
+            - "logs:CreateLogStream"
+            - "logs:PutLogEvents"
+            - "logs:DescribeLogStreams"
+            Resource: "*"
+
+Outputs:
+  SSMDocumentName:
+    Description: The name of the created SSM document
+    Value: !Ref SSMDocument
+
+  CloudWatchLogGroupName:
+    Description: The name of the CloudWatch log group
+    Value: !Ref CloudWatchLogGroupName
+
+  CMEncryptionKey:
+    Description: Customer Managed Encryption Key ID
+    Value: !Ref CWLogsCMK
+    Export:
+      Name: "CustomerManagedEncryptionKey"
